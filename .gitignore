@@ -159,3 +159,5 @@ cython_debug/
 
 # Custom
 data/*
+raw_data/*
+processed_data/*
