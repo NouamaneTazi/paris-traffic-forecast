@@ -94,6 +94,9 @@ if __name__ == "__main__":
             epochs=args.pretrain_epochs,
         )
 
+        print(f"Saving pretrained model to {args.model_dir}")
+        torch.save(my_model, args.model_dir + "/TFT-model-pretrained.pth")
+
         print("Finetuning model on target data...")
         my_model.fit(
             target_arc["train_scaled"],
