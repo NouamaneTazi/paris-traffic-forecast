@@ -38,7 +38,7 @@ if __name__ == "__main__":
     parser.add_argument("--model_dir", type=str, default=os.environ["SM_MODEL_DIR"])
     parser.add_argument("--data_dir", type=str, default=os.environ["SM_CHANNEL_TRAINING"])
 
-    parser.add_argument("--train_fileName", type=str, default="voi-convention2021.pkl")
+    parser.add_argument("--train_fileName", type=str, default="voi-convention2021.pkl")  # ALL
     parser.add_argument("--pretrain_epochs", type=int, default=1)
     parser.add_argument("--finetune_epochs", type=int, default=1)
 
@@ -47,11 +47,18 @@ if __name__ == "__main__":
     target_noeuds = ["Lecourbe-Convention", "Convention-Blomet"]
 
     # ## load data
-    all_arcs = joblib.load(f"{args.data_dir}/{args.train_fileName}")  # voi-convention1.pkl
+    if args.train_fileName == "ALL":
+        data_files = [os.path.join(args.data_dir, f) for f in os.listdir(args.data_dir) if f.endswith(".pkl")]
+        all_arcs = []
+        for f in data_files:
+            all_arcs.extend(joblib.load(f))
+    else:
+        all_arcs = joblib.load(f"{args.data_dir}/{args.train_fileName}")  # voi-convention1.pkl
     print(f"Loaded {len(all_arcs)} arcs:")
     for arc in all_arcs:
         print(f"{arc['noeud_amont']} {arc['noeud_aval']}")
 
+    # ## preprocess data
     all_arcs = preprocess_data(all_arcs)
 
     for arc in all_arcs:
@@ -59,8 +66,7 @@ if __name__ == "__main__":
         if [arc["noeud_amont"], arc["noeud_aval"]] == target_noeuds:
             target_arc = arc
 
-    # ## model
-
+    # ## train model
     input_chunk_length = 168  # week
     forecast_horizon = 24  # day
     my_model = TFTModel(
@@ -100,6 +106,7 @@ if __name__ == "__main__":
         print(f"Saving model to {args.model_dir}")
         torch.save(my_model, args.model_dir + "/TFT-model.pth")
 
+        # ## predict on test data
         forecast_horizon = 24 * 5  # predict 5 days
         past_covs = target_arc["past_covs_scaled"].univariate_component(0).append_values(np.ones(forecast_horizon))
         future_covs = target_arc["past_covs_scaled"].univariate_component(1).append_values(np.zeros(forecast_horizon))
