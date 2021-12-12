@@ -22,11 +22,13 @@ import argparse
 import os
 import json
 
+import signal
+
 # # set environment for sagemaker fir local testing
-# os.environ["SM_HOSTS"] = '["to-be-filled-by-sagemaker"]'
-# os.environ["SM_CURRENT_HOST"] = "to-be-filled-by-sagemaker"
-# os.environ["SM_MODEL_DIR"] = "models"
-# os.environ["SM_CHANNEL_TRAINING"] = "tmp"
+os.environ["SM_HOSTS"] = '["to-be-filled-by-sagemaker"]'
+os.environ["SM_CURRENT_HOST"] = "to-be-filled-by-sagemaker"
+os.environ["SM_MODEL_DIR"] = "models"
+os.environ["SM_CHANNEL_TRAINING"] = "tmp"
 
 
 # sagemaker
@@ -82,10 +84,23 @@ if __name__ == "__main__":
         likelihood=None,  # QuantileRegression is set per default
         loss_fn=torch.nn.MSELoss(),
         random_state=42,
+        save_checkpoints=True,
+        work_dir=args.model_dir,
     )
 
+    def exit_handler(signum, frame, model_dir=args.model_dir):
+        print("SIGINT or CTRL-C detected. Exiting gracefully")
+        save_path = os.path.join(model_dir, f"TFT-model-SIG-{signum}.pth.tar")
+        print(f"Saving model to {save_path}")
+        torch.save(my_model, save_path)
+        print(f"Model saved to {save_path}")
+        exit(0)
+
+    signal.signal(signal.SIGINT, exit_handler)
+    signal.signal(signal.SIGTERM, exit_handler)
+
     try:
-        print("Fitting model on all data...")
+        print("\nFitting model on all data...")
         my_model.fit(
             [arc["train_scaled"] for arc in all_arcs],
             past_covariates=[arc["past_covs_scaled"].univariate_component(0) for arc in all_arcs],
@@ -94,8 +109,10 @@ if __name__ == "__main__":
             epochs=args.pretrain_epochs,
         )
 
-        print(f"Saving pretrained model to {args.model_dir}")
-        torch.save(my_model, args.model_dir + "/TFT-model-pretrained.pth")
+        save_path = os.path.join(args.model_dir, f"TFT-model-pretrained.pth.tar")
+        print(f"Saving pretrained model to {save_path}")
+        torch.save(my_model, save_path)
+        print(f"Model saved to {save_path}")
 
         print("Finetuning model on target data...")
         my_model.fit(
@@ -107,7 +124,9 @@ if __name__ == "__main__":
         )
 
         print(f"Saving model to {args.model_dir}")
-        torch.save(my_model, args.model_dir + "/TFT-model.pth")
+        save_path = os.path.join(args.model_dir, f"TFT-model.pth.tar")
+        torch.save(my_model, save_path)
+        print(f"Model saved to {save_path}")
 
         # ## predict on test data
         forecast_horizon = 24 * 5  # predict 5 days
@@ -130,7 +149,10 @@ if __name__ == "__main__":
         pred_ts.to_csv(args.model_dir + "/preds.csv")
         print("Preds saved successfully!")
 
-    except:
-        print("An error happened")
-        print(f"Saving model to {args.model_dir}")
-        torch.save(my_model, args.model_dir + "/TFT-model.pth")
+    except Exception as e:
+        print("An error happened:")
+        print(e)
+        save_path = os.path.join(args.model_dir, f"TFT-model.pth.tar")
+        print(f"Saving model to {save_path}")
+        torch.save(my_model, save_path)
+        print(f"Model saved to {save_path}")
