@@ -39,6 +39,7 @@ def preprocess_data(all_arcs):
         # Normalize the time series (note: we avoid fitting the transformer on the validation set)
         transformer = Scaler()
         arc["train_scaled"] = transformer.fit_transform(arc["targets"])
+        arc["targets_scaler"] = transformer
         # arc["val_scaled"] = transformer.transform(val)
         # arc["targets_scaled"] = transformer.transform(arc["targets"])
 
@@ -51,5 +52,6 @@ def preprocess_data(all_arcs):
         past_covs_scaler = Scaler()
         # past_covs_scaler.fit(past_covs_train)
         arc["past_covs_scaled"] = past_covs_scaler.fit_transform(arc["past_covs"])
+        arc["past_covs_scaler"] = past_covs_scaler
 
     return all_arcs
