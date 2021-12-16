@@ -159,3 +159,5 @@ cython_debug/
 
 # Custom
 data/*
+results/*
+checkpoints/*
